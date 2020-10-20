@@ -1,0 +1,194 @@
+\subsection{Βήμα 2 - Υπολογισμός  δεδομένων}
+
+Επιλέγοντας την Java για τον υπολογισμό των δεδομένων και επικεντρώνοντας όλες τις βελτιστοποιήσεις στο κομμάτι τις απόδοσης, δημιουργήθηκε ένα νέο πρόβλημα. Επειδή υπάρχουν διπλότυπα δεδομένα λόγω της φύσης της δομής της πτυχιακής εξ' αρχής, η παρούσα υλοποίηση δεν είναι καθόλου βελτιστοποιημένη για την χρήση μνήμης RAM. Στο πέρας του πρώτο βήματος με δεδομένα 30000 ταινιών κατηγοριοποιημένα, η χρήση μνήμης ξεπερνάει τα 25 GB. Έχοντάς αυτό σαν δεδομένο ο αλγόριθμος υπολογισμού των δεδομένων εκτός απο αποδοτικός ως προς την ταχύτητα θα έπρεπε να είναι τουλάχιστον και αποδοτικός ως προς την χρήση μνήμης.
+
+Η αρχική προσέγγιση ηταν ο υπολογισμός των δεδομένων σε κάποια DTO με σκοπό ύστερα την δημιουργία Managed Entities του Hibernate για να μπορέσουν να αποθηκευτούν στην βάση δεδομένων. Με αυτόν τον τρόπο όμως θα είχαμε ξανά το φαινόμενο των διπλότυπων και θα ξοδεύαμε ακόμα περισσότερη μνήμη καθώς η πλειοψηφία των δεδομένων είναι native ints, longs και doubles και οχι τόσο Reference Types. Η προσέγγιση που επιλέχτηκε ήταν η δημιουργία 
+ενός Wrapper που κληρονομεί από το Maanaged Entity του Hibernate, κάνοντας και το Wrapper managed entity. Με λίγες ρυθμίσεις πλέον το Wrapper μπορεί να σταλεί απευθείας στον hibernate για να αποθηκευτεί στην βάση δεδομένων χωρίς να χρειαστεί η δημιουργία κάποιου άλλου entity.
+
+Έτσι ο αλγόριθμος της επεξεργασίας δεδομένων μεταφέρθηκε μέσα σε αυτό το Wrapper έτσι ώστε να μπορεί να τρέξει μετά το πέρας της κατηγοριοποίησης αποδοτικά. Βλέποντας πίσω στο σχήμα(\ref{code:categorieParallelWithCHM}) βλέπουμε οτι στέλνουμε μια ταινία στον wrapper για περαιτέρω επεξεργασία. 
+
+Για να βελτιστοποιηθεί ακόμα περισσότερο στο βήμα της κατηγοριοποίησης το wrapper εκτελεί όσους υπολογισμούς μπορεί που δεν χρειάζονται τα συνολικά δεδομένα για να υπολογιστούν αλλά μόνο τα υπάρχοντα κάθε φορά σε κάθε submit.
+
+Τα δεδομένα που υπολογίζονται σε κάθε Submit είναι οι ταινίες με την μεγαλύτερη και χαμηλότερη βαθμολογία καθώς και η μέση βαθμολογία ταινιών για κάθε κατηγορία και οι ταινίες με τα μεγαλύτερα και χαμηλότερα έσοδα/έξοδα καθώς και τα μέσα έσοδα/έξοδα για κάθε κατηγορία. Τα υπόλοιπα δεδομένα υποβάλλονται και αποθηκεύονται σε HashMaps για τον τελικό υπολογισμό.
+
+Ενα πρόβλημα που αντιμετωπίστηκε στον υπολογισμό της ταινίας με την μεγαλύτερη βαθμολογία ήταν η ακρίβεια της βαθμολογίας. Για παράδειγμα δεν είναι το ίδιο να υπάρχει μια ταινία με βαθμολογία 9.0 και 10.000 ψήφους και μια άλλη ταινία με βαθμολογία 9.0 και 200.000 βαθμολογίες. Όπως επίσης είναι πιο αξιόπιστη μια βαθμολογία για παράδειγμα 8.5 με 2.000.000 ψήφους απο οτι μια βαθμολογία 9.0 με 100.000 ψήφους. 
+
+Για την επίλυση αυτού του προβλήματος χρησιμοποιήθηκε ένας πολύ απλός αλγόριθμος βάρους $rating * \log_2(voteCount)$, έτσι ώστε να υπολογίζονται και οι ψήφοι και να βγαίνει ενα "σκορ" ταινίας το οποιο θα συγκρίνεται με τα άλλα "σκορ" ταινιών έτσι ώστε να υπολογίζεται η με μεγαλύτερη ακρίβεια ποιά ταινία είχε την μεγαλύτερη βαθμολογία.
+\begin{figure}[h]
+    \begin{javacode}
+double calculateScore(Vote vote, boolean high) {
+    return getScore(vote.getAverage(), vote.getVotes(), high, 2);
+}
+double getScore(double value, double weight, boolean high, int base) {
+    double weightLog = Math.log(weight) / Math.log(base);
+    return high ? value * weightLog : value / weightLog;
+}
+    \end{javacode}
+    \caption{Αλγόριθμος Βάρους Βαθμολογιών}
+   \label{code:logarithmicScore}
+\end{figure}
+
+Με τον παραπάνω αλγόριθμο σαν βάση ο Αλγόριθμος υπολογισμού των ταινιών με την μεγαλύτερη και χαμηλότερη βαθμολογία καθώς και της μέσης βαθμολογίας έχει διαμορφωθεί όπως φαίνεται στο σχήμα ~\ref{code:ratingCalculation}. Αρχικά γίνεται έλεγχος αν οι ψήφοι της βαθμολογίας της εν λόγω ταινίας είναι περισσότεροι ή ίσοι με την τιμή της σταθεράς {\it MINIMUM\_VOTES\_THRESHOLD}. Αν δεν είναι, η ταινία εξαιρείται από αυτόν τον υπολογισμό. Αλλιώς προσθέτουμε την βαθμολογία της ταινίας σε μια μεταβλητή που κρατάει το άθροισμά όλων των βαθμολογιών και αυξάνουμε την μεταβλητή που κρατάει και πόσες ταινίες έχουν υποβάλει τις βαθμολογίες τους για να υπολογιστεί αργότερα η μέση βαθμολογία ταινιών. Ύστερα αν δεν υπάρχει ήδη ταινία με την μεγαλύτερη η χαμηλότερη βαθμολογία τοποθετείται αυτή για την οποία γίνεται ο έλεγχος αυτήν την χρονική στιγμή, αλλιώς γίνεται έλεγχος αν αυτή η ταινία έχει μεγαλύτερη / μικρότερη βαθμολογία από την ανάλογη υπάρχουσα και ορίζεται αυτή στην θέση της σε περίπτωση που πληροί της προϋποθέσεις.
+
+\begin{figure}[h]
+    \begin{javacode}
+void submitRating(Movie movie) {
+    if (movie.getVote().getVotes() >= Constants.MINIMUM_VOTES_THRESHOLD) {
+        synchronized (voteLock) {
+            Vote vote = movie.getVote();
+            totalVoteAverage += vote.getAverage();
+            setTotalRatedMovies(getTotalRatedMovies() + 1);
+            if (getHighestRatedMovie() == null) {
+                setHighestRatedMovie(movie);
+            } else {
+                setHighestRatedMovie(calculateVote(calculateScore(getHighestRatedMovie().getVote(), true), getHighestRatedMovie(),calculateScore(movie.getVote(), true),movie,(current, challenger) -> current < challenger));
+            }
+            if (getLowestRatedMovie() == null) {
+                setLowestRatedMovie(movie);
+            } else {
+                setLowestRatedMovie(calculateVote( getLowestRatedMovie().getVote().getAverage(),getLowestRatedMovie(), movie.getVote().getAverage(),movie,(current, challenger) -> current > challenger));
+            }
+        }
+    }
+}   
+    \end{javacode}
+    \caption{Αλγόριθμος Υπολογισμού Βαθμολογιών}
+   \label{code:ratingCalculation}
+\end{figure}
+
+Ο υπολογισμοί των ταινιών με τα μεγαλύτερα, μικρότερα και μέσα έσοδα / έξοδα γίνεται με εναν πολύ παρόμοιο τρόπο όπως των βαθμολογιών των ταινιών, χωρίς βέβαια να χρησιμοποιείται ο αλγόριθμος βάρους.
+
+Ο υπολογισμός των υπόλοιπων δεδομένων γίνεται μετά το πέρας του βήματος της κατηγοριοποίησης. Για να γίνει πιο εύκολος ο υπολογισμός αντί να υποβάλλονται τα δεδομένα ως έχουν έχουν δημιουργηθεί Wrappers γύρο από αυτά για την προσθήκη επιπρόσθετων δεδομένων και λειτουργιών που καθιστούν τον υπολογισμό των δεδομένων πιο εύκολα. Για παράδειγμα το ένα αντικείμενο τύπου Genre έχει το ανάλογο GenreWrapper, όπως επίσης και ένα αντικείμενο τύπου Person έχει τα ανάλογα ActorWrapper, DirectorWrapper, ProducerWrapper και WritterWrapper για κάθε κατηγορία ατόμου που υποστηρίζεται απο την εφαρμογή. Σε αυτά τα Wrappers υπάρχουν δεδομένα όπως ο αριθμός ταινιών που συμμέτεχουν αυτα τα Wrappers για αυτην την κατηγορία, οι ταινίες οι ίδιες, και υπάρχουν και λειτουργίες σύγκρισης (Comparators) μεταξύ ίδιων Wrappers χρησιμοποιώντας αυτά τα παραπάνω δεδομένα.
+
+Οταν γίνεται η υποβολή δημιουργείται αρχικά ενα Wrapper προσθέτωντας μεταδεδομένα χωρίς να ελεγχθει αν υπάρχει ήδη ανάλογο Wrapper που να αναφέραται στο ίδιο αντικείμενο αποθηκευμένο στο ανάλογο HashMap οπως φαίνεται στο σχήμα \ref{code:submitGenre} στην σειρά 5 για την υποβολή δεδομένων ειδών ταινιών.
+\begin{figure}[h]
+    \begin{javacode}
+void submitGenres(Movie movie) {
+    AtomicBoolean hasIncreased = new AtomicBoolean(false);
+    movie.getGenres().parallelStream().filter(Objects::nonNull).forEach(genre -> {
+        calculateTotals(genreTotals, hasIncreased);
+        submit(new GenreWrapper(genre, processor.getMovieCount(genre)), genres, movie, genre);
+    });
+}
+    \end{javacode}
+    \caption{Αλγόριθμος Υποβολής Δεδομένων Είδους Ταινίας}
+    \label{code:submitGenre}
+\end{figure}
+
+Στην γενικευμένη συνάρτηση submit παρολαυτά γίνεται εκεί ο έλεγχος για την υπάρξη του ανάλογου Wrapper, και αν υπάρχει απλά αγνοεί το νεο Wrapper και αλλάζει το υπάρχων αλλιώς τοποθετεί το δημιουργημένο wrapper στο ανάλογο HashMap όπως φαίνεται στο σχήμα \ref{code:submit}
+
+\begin{figure}[h]
+    \begin{javacode}
+<T extends IdentifiedEntity, W extends BaseWrapper<T>> void submit(W wrapper, Map<Long, W> objMap, Movie movie, T obj) {
+    W wrapper2;
+    synchronized (objMap) {
+        if ((wrapper2 = objMap.putIfAbsent(obj.getId(), wrapper)) == null) {
+            wrapper2 = wrapper;
+        }
+    }
+    wrapper2.movies.add(movie);
+    wrapper2.count++;
+}
+    \end{javacode}
+    \caption{Αλγόριθμος Γενικευμένης υποβολής δεδομένων}
+    \label{code:submit}
+\end{figure}
+
+Επιπρόσθετα για τον υπολογισμό αυτών των δεδομένων χρησιμοποιείται μια βοηθητική γενικευμένη κλάση Total η οποία κρατάει τα στοιχεία για τα μέγιστα, ελάχιστα και μέσα αυτών των δεδομένων. 
+
+Μετά το πέρας της συλλογής και της κατηγοριοποίησης το κάθε MovieInsights Wrapper ξεχωριστά θα υπολογίσει τα υπόλοιπα δεδομένα για το ίδιο αλλα και για κάθε εξαρτώμενο Wrapper απο αυτό, που στην συγκεκριμένη περίπτωση τα εξαρτώμενα Wrappers, είναι οι κατηγορίες ανα χρόνο.
+
+Για κάθε διαφορετικό Wrapper HashMap θα υπολογιστούν τα μέγιστα και τα ελάχιστα χρησιμοποιώντας τις συναρτήσεις σύγκρισης που υπάρχουν μέσα στα Wrappers, και τα δεδομένα που περιέχουν τα μέγιστα και τα ελάχιστα θα υποβληθούν στα αντικείμενα της βοηθητικής κλάσης Total για την ανάκτηση τους αργότερα, όπως φαίνεται στα σχήματα \ref{code:calculateChildInsights} και \ref{code:getWrapperBasedOnComparator}.
+
+\begin{figure}[h]
+    \begin{javacode}
+<W extends BaseWrapper<WE>, WE> void calculateChildInsights(Map<Long, W> map, Comparator<? super W> comparator, Total<WE> totals) {
+    Optional<W> mostPopularEntryResult = getWrapperBasedOnComparator(map, comparator.reversed());
+    mostPopularEntryResult.ifPresent(totals::submitMostPopular);
+    Optional<W> leastPopularEntryResult = getWrapperBasedOnComparator(map, comparator);
+    leastPopularEntryResult.ifPresent(totals::submitLeastPopular);
+    totals.setTotalEntities(map.size());
+}
+    \end{javacode}
+    \caption{Γενικευμένος Αλγόριθμος υπολογισμού μέγιστων και ελάχιστων δεδομένων}
+    \label{code:calculateChildInsights}
+\end{figure}
+\begin{figure}[h]
+    \begin{javacode}
+private <W extends BaseWrapper<EW>, EW> Optional<W> getWrapperBasedOnComparator(Map<Long, W> wrapperMap, Comparator<? super W> comparator) {
+    return wrapperMap.values().parallelStream().sorted(comparator).filter(e -> (slave ? master.getCategory() : getCategory()) != e.category || e.object != (slave ? master.getSource().object : source.object)).findFirst();
+}
+    \end{javacode}
+    \caption{Γενικευμένος Αλγόριθμος ανάκτησης Wrapper απο ενα HashMap με βάση αλγόριθμο σύγκρισης}
+    \label{code:getWrapperBasedOnComparator}
+\end{figure}
+
+Τέλος όλα τα δεδομένα αποθηκεύονται στα πεδία της κληρονομουμένης κλάσης MovieInsights, ανακτώντας τα δεδομένα απο τα αντικείμενα της βοηθητικής κλάσης Total.
+
+% \begin{figure}[h]
+%     \begin{javacode}
+% void submitRevenue(Movie movie) {
+%     if (movie.getRevenue() >= Constants.MINIMUM_REVENUE_THRESHOLD) {
+%         synchronized (revenueLock) {
+%             setTotalRevenue(getTotalRevenue() + movie.getRevenue());
+%             setTotalRevenueMovies(getTotalRevenueMovies() + 1);
+%             if (getHighestRevenueMovie() == null) {
+%                 setHighestRevenueMovie(movie);
+%             } else {
+%                 if (getHighestRevenueMovie().getRevenue() < movie.getRevenue()) {
+%                     setHighestRevenueMovie(movie);
+%                 } else if (getHighestRevenueMovie().getRevenue().equals(movie.getRevenue()) && movie.getPopularity() > getHighestRevenueMovie().getPopularity()) {
+%                     setHighestRevenueMovie(movie);
+%                 }
+%             }
+%             if (getLowestRevenueMovie() == null) {
+%                 setLowestRevenueMovie(movie);
+%             } else {
+%                 if (getLowestRevenueMovie().getRevenue() > movie.getRevenue()) {
+%                     setLowestRevenueMovie(movie);
+%                 } else if (getLowestRevenueMovie().getRevenue().equals(movie.getRevenue()) && movie.getPopularity() > getLowestRevenueMovie().getPopularity()) {
+%                     setLowestRevenueMovie(movie);
+%                 }
+%             }
+%         }
+%     }
+% }    
+%     \end{javacode}
+%     \caption{Αλγόριθμος Υπολογισμού Εσόδων}
+%   \label{code:revenueCalculation}
+% \end{figure}
+% \begin{figure}[h]
+%     \begin{javacode}
+% void submitBudget(Movie movie) {
+%     if (movie.getBudget() >= Constants.MINIMUM_BUDGET_THRESHOLD) {
+%         synchronized (budgetLock) {
+%             setTotalBudget(getTotalBudget() + movie.getBudget());
+%             setTotalBudgetMovies(getTotalBudgetMovies() + 1);
+%             if (getHighestBudgetMovie() == null) {
+%                 setHighestBudgetMovie(movie);
+%             } else {
+%                 if (getHighestBudgetMovie().getBudget() < movie.getBudget()) {
+%                     setHighestBudgetMovie(movie);
+%                 } else if (getHighestBudgetMovie().getBudget().equals(movie.getBudget()) && movie.getPopularity() > getHighestBudgetMovie().getPopularity()) {
+%                     setHighestBudgetMovie(movie);
+%                 }
+%             }
+%             if (getLowestBudgetMovie() == null) {
+%                 setLowestBudgetMovie(movie);
+%             } else {
+%                 if (getLowestBudgetMovie().getBudget() > movie.getBudget()) {
+%                     setLowestBudgetMovie(movie);
+%                 } else if (getLowestBudgetMovie().getBudget().equals(movie.getBudget()) && movie.getPopularity() > getLowestBudgetMovie().getPopularity()) {
+%                     setLowestBudgetMovie(movie);
+%                 }
+%             }
+%         }
+%     }
+% }
+%     \end{javacode}
+%     \caption{Αλγόριθμος Υπολογισμού Εξόδων}
+%     \label{code:budgetCalculation}
+% \end{figure}
+% \begin{javacode*}{frame=none,fontsize=\small,linenos=false}
+% void calculateChildInsights(Map<Long, W> map, Comparator<? super W> comparator, Total<WE> totals)
+% \end{javacode*}

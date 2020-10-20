@@ -2,8 +2,43 @@
 \usepackage{icdthesisUTF}
 \usepackage{tabularx} 
 \usepackage{epsfig}
-%Τα παρακάτω είναι υποχρεωτικά:
+\usepackage{minted}
+\usepackage{caption}
+\usepackage{subcaption}
+\setcounter{tocdepth}{4}
+\setcounter{secnumdepth}{4}
+\newminted{java}{
+    mathescape,
+    linenos,
+    fontsize=\scriptsize,
+    numbersep=3pt,
+    breaklines,
+    breakafter={\,,\},],),.,(},
+    frame=lines,
+    framesep=2mm
+}
+\newminted{TypeScript}{
+    mathescape,
+    linenos,
+    fontsize=\scriptsize,
+    numbersep=3pt,
+    breaklines,
+    breakafter={\,,\},],),.,(},
+    frame=lines,
+    framesep=2mm,
+    escapeinside=||
+}
+\newminted{json}{
+    linenos,
+    fontsize=\scriptsize,
+    numbersep=2pt,
+    breaklines,
+    frame=lines,
+    framesep=2mm
+}
 
+
+%Τα παρακάτω είναι υποχρεωτικά:
 \renewcommand{\thesistitle}{Οπτικοποίηση  δεδομένων βιομηχανίας κινηματογράφου με χρήση API δημόσιων ανοικτών δεδομένων}
 \renewcommand{\thesisauthor}{Νικόλαος Μαυρόπουλος ( 3783 )}
 \renewcommand{\thesisauthorabbrv}{Νικόλαος Μαυρόπουλος}
@@ -11,8 +46,10 @@
 \renewcommand{\thesissupervisor}{Ν. Πεταλίδης}
 \renewcommand{\thesismonth}{Σεπτέμβριος}
 \renewcommand{\thesisyear}{2020}
+\renewcommand{\thesubfigure}{\Roman{subfigure}}
 
 % Η βιβλιογραφία
+\input{Bibliography}
 \addbibresource{Thesis.bib}
 
 \begin{document}
@@ -34,16 +71,22 @@
 
 \input{Chapters/1 - Intro/Main}
 \input{Chapters/2 - OpenData/Main}
+\input{Chapters/3 - Technologies/Main}
+\input{Chapters/4 - Stories/Main}
+\input{Chapters/5 - Architecture/Main}
+\input{Chapters/6 - Manual/Main}
+\input{Chapters/7 - Conclusion/Main}
 
-~\citep{Wikipedia_BibTeX}
-% \chapter{Εισαγωγή}
-% \leftmark\rightmark
+%\citep{10.1007/978-3-540-76298-0_52}
+%~\citep{Wikipedia_BibTeX}
+% \chapter{Εισαγωγή5}
 % \section{Η τυπογραφία σήμερα}
 % Αυτή είναι η αναφορά σε ένα άρθρο περιοδικού:\citep{Schmidt98}.Αυτή
 % είναι η αναφορά σε ένα βιβλίο:\citep{goosens93}. Αυτή είναι η αναφορά
 % σε ένα ελληνικό βιβλίο:\citep{Chatzigeorgiou05}. Βιβλίο στα ελληνικά
 % με ξένο συγγραφέα:\citep{Sommerville09}. Άρθρο σε
 % συνέδριο~\citep{4343930}. 
+
 
 % Τέλος αναφορά σε ιστοσελίδα:~\citep{Wikipedia_BibTeX}.
 
@@ -87,6 +130,6 @@
 %Προαιρετικά
 
 \input{Pages/Glossary}
-\printbibliography
+\printbibliography[heading=bibintoc,title={Βιβλιογραφία}]
 \lastpageinfo
 \end{document}
